@@ -1,451 +1,199 @@
-# SCOA / Enhanced YOLOX 论文驱动复现
+# SCOA / Enhanced YOLOX
 
-这是对上传论文 **Structure-Constrained Optical Augmentation for Pharmaceutical Blister Defect Detection** 的可移植 Python/PyTorch 重建。先读 [论文理解与缺失信息](docs/01_paper_and_plan.md)，再读 [论文—代码映射](docs/02_paper_code_map.md)。最终实际运行情况见 [验证记录](docs/03_validation.md)。
+面向药品泡罩图像的药片与缺陷腔体检测项目，提供结构约束光学增强（SCOA）、EMA 候选难度选择，以及 YOLOX-s 的训练、评价和推理工具。
 
-**本仓库公开依据论文重建的参考实现；真实数据、固定划分及原始实验记录未随仓库分发。这里不是产生论文原有表格结果的原始研究代码。所有论文表格数值只作参考，未运行的真实结果保持 null。**
+相关论文：*Structure-Constrained Optical Augmentation for Pharmaceutical Blister Defect Detection*。
 
-以下命令在项目根目录执行。本次完成44项测试、完整合成闭环，以及集成模型按epoch保存/续训的精确状态对照。详细修复与完整性边界见 [代码完整性检查报告](docs/06_completeness_audit.md)。历史验证记录保留，最新状态以这份报告为准；下文命令不依赖本机盘符。
+## 功能
 
-## 阅读顺序
+- 在共享的有限光学候选池中生成局部模糊／锐化与眩光扰动。
+- 结合光度保护和实例级结构筛查，保留满足约束的增强候选。
+- 使用 EMA 检测器计算候选难度，并在图像中出现的类别间进行平衡汇总。
+- 提供 YOLOX-s 基线、SCOA 核心配置，以及包含 CBAM、WIoU-v3 和 DIoU-NMS 的集成配置。
+- 支持 COCO 格式标注、断点续训、固定图像子集评价和单图推理。
 
-- 了解算法：先读下方“论文任务与方法”“关键公式与实现对应”。
-- 换一台电脑运行：从“1. 在另一台机器安装”开始，再执行合成流程检查。
-- 开始真实实验：准备固定划分数据，核对“论文训练设置”，再运行核心或集成配置。
-- 评估复现程度：查看“论文结果与实际验证状态”和“已知边界”。
+SCOA 在训练阶段选择输入图像；推理阶段不执行光学候选生成和筛选。
 
-## 论文任务与方法
-
-研究任务是在药品泡罩图像中检测正常药片与缺陷腔体。输入是一张图像，输出是矩形框、四类类别和置信度；它属于目标检测，不输出像素级缺陷分割，也不直接计算整板产品的放行/剔除判定。
-
-| COCO类别ID | 类别名 | 论文标注含义 |
-|---:|---|---|
-| 1 | medicine | 完好包装内的正常药片，框覆盖药片 |
-| 2 | empty | 包装完好、没有药片，框覆盖完整腔体 |
-| 3 | broke | 包装损坏且有药片，框覆盖完整腔体 |
-| 4 | lack | 包装损坏且没有药片，框覆盖完整腔体 |
-
-每个腔体只赋一个类别；broke不再额外标medicine。损伤跨多个腔体时逐腔体标注。代码内部类别索引为0–3，COCO文件类别ID为1–4。
-
-论文的核心是 **Structure-Constrained Optical Augmentation（SCOA）**：在训练时，从一个共享的光学候选池中，先排除破坏缺陷外观结构的候选，再选择对当前EMA检测器较困难的候选。CBAM、WIoU v3和DIoU-NMS是可独立开关的支持模块。
-
-训练流程如下；推理只运行选定的EMA检测网络与后处理，不再生成或筛选增强候选。
+## 目录
 
 ```text
-原图与标注
-  ├─ 80%：基本增强 → Mosaic/affine（第1–285轮）、HSV、水平翻转
-  └─ 20%：左上letterbox → 共享光学draw → 3个幅度候选
-            → 缺陷框光度守卫 → 可选局部结构筛选
-            → 均匀选择 / 冻结EMA困难排序 → 空集或异常时按规则回退
-两条分支的输出 → YOLOX重新计算SimOTA匹配并训练 → 成功更新后推进EMA
-每轮验证 → 用未舍入AP50选择best EMA → 冻结后在test/外部条件上评价
+configs/               训练与评价配置
+scoa/                  数据处理、光学增强、筛查、选择和检测器实现
+tools/                 数据检查、结果汇总和计时等工具
+tests/                 自动化检查
+weights/               模型文件及简要使用说明
+third_party/           YOLOX 来源记录与许可证
+docs/                  方法与实现说明
+validation_records/    已有软件检查记录
+requirements*.txt      环境依赖
+NOTICE.md              来源与第三方说明
 ```
 
-### 核心A–D对照
+## 安装
 
-| 配置 | 光学分支 | 光度守卫 | 结构筛选 | 困难选择 | 对应配置项 |
-|---|---|---|---|---|---|
-| basic-only | 关闭 | — | — | — | `optical.policy=basic` |
-| A | 20% | 开 | 关 | 关 | `optical.policy=A` |
-| B | 20% | 开 | 开 | 关 | `optical.policy=B` |
-| C | 20% | 开 | 关 | 第15轮开始 | `optical.policy=C` |
-| D / SCOA | 20% | 开 | 开 | 第15轮开始 | `optical.policy=D` |
+以下命令在项目根目录执行。先获取项目：
 
-A–D对同一image ID、epoch、seed共享候选生成结果，只改变筛选或选择规则。C/D在第1–14轮均匀选择；A/B始终均匀选择。所有组都先应用光度守卫；空可行集返回预处理原图。光学操作保持框和padding不变，基本分支的几何操作则同步变换框。
-
-basic-only在每个输入上进入基本分支；光学开启时，HSV/flip只出现在80%的基本分支内。因此，光学开启后的整体HSV/flip概率为64%/40%，basic-only为80%/50%。D与basic-only的比较同时包含这项分支概率变化；A–D共享池对照更适合分析筛选与选择的贡献。
-
-### 关键公式与实现对应
-
-**光学候选，论文式(1)–(7)。** 一个公共draw决定1–3个旋转椭圆高斯光斑，以及一个局部模糊/锐化区域；三候选只改变眩光幅度系数：
-
-$$
-I_j=\operatorname{clip}(I_{\mathrm{trans}}+a_jG,0,1),\qquad a_j\in\{0.5,1.0,1.5\}.
-$$
-
-光斑幅度在0.15–0.40、两轴标准差在8–32像素、角度在0–π之间采样，支持截断为三倍标准差椭圆。局部滤波圆半径32–96像素、混合强度0.2–0.5，模糊与锐化各50%；模糊σ为0.3–1.2，锐化σ为0.5–1.0、锐化强度0.2–0.5。滤波核大小为2ceil(3σ)+1，仅在有效内容区以反射边界滤波后局部混合。实现见 `scoa/optics.py`。
-
-**光度守卫，式(8)–(9)。** 对empty/broke/lack框，要求连续框中心的解析光斑增量不超过0.15，新过曝像素比例不超过0.30。过曝用最大颜色通道≥0.98判断；“新过曝”相对两种光学扰动之前的原图计算，分母包含原本已过曝像素。实现见 `scoa/structure.py:photometric`。
-
-**局部结构约束，式(10)–(12)。** 物理RGB亮度为0.299R+0.587G+0.114B，存储为BGR时也按此物理通道解释。将每个缺陷框划为4×4网格，仅由原图保留至少2像素且总体方差≥1e−4的tile；没有合格tile时退为整个有效框。每个保留区域的分数为：
-
-$$
-s_{ijr}=\operatorname{clip}\!\left(\frac{2\operatorname{cov}(L_r,L_{jr})+\epsilon_q}{\operatorname{var}(L_r)+\operatorname{var}(L_{jr})+\epsilon_q},0,1\right),\quad \epsilon_q=10^{-4}.
-$$
-
-取升序第ceil(0.25n)个分数，不插值；例如16个tile取第4小。每个缺陷框的该分数均须≥0.75。少于2个有效像素的缺陷框会使A–D直接回退并记录。没有缺陷框时结构条件为空真；medicine不受此结构筛选显式保护。实现见 `reference_regions`、`structure_scores`。
-
-**困难排序，式(13)–(15)。** 冻结EMA在原图上做SimOTA匹配，得到每个实例的正位置集合；所有候选复用同一匹配。实例损失是在这些位置上平均的“四类one-hot BCE之和 + objectness BCE + 5×普通IoU损失”：
-
-$$
-\ell_i(X)=\frac{1}{|P_i|}\sum_{u\in P_i}\left[\sum_{k=1}^{4}\operatorname{BCE}(p_{uk}(X),e_{c_i,k})+\operatorname{BCE}(o_u(X),1)+5(1-\operatorname{IoU}(\hat b_u(X),b_i))\right].
-$$
-
-候选难度先计算相对原图的实例损失增量，再在类内平均、在出现的类别间平均；类别集合包括medicine：
-
-$$
-H_j=\frac{1}{|C_I|}\sum_{c\in C_I}\frac{1}{|I_c|}\sum_{i\in I_c}[\ell_i(I_j)-\ell_i(I)].
-$$
-
-从可行集取最大H，同分选最小候选索引；H可以为负。空标注、任一实例无匹配或非有限评分都回退到非空可行集的均匀随机选择，不能丢弃未匹配实例。排序不更新EMA、BN或WIoU均值；学生训练时重新做匹配。实现见 `scoa/difficulty.py`、`scoa/selection.py`。
-
-**EMA与训练损失，式(16)–(17)。** 第一次成功训练更新后计数从1开始：
-
-$$
-\mu_t=0.9998(1-e^{-u_t/2000}),\qquad\bar\theta_t=\mu_t\bar\theta_{t-1}+(1-\mu_t)\theta_t.
-$$
-
-$$
-L_{\mathrm{train}}=L_{\mathrm{cls}}+5L_{\mathrm{reg}}+L_{\mathrm{obj}}+\mathbf1[e>285]L_1.
-$$
-
-核心A–D使用训练回归损失1−IoU²；困难评分始终使用上式的1−IoU，不随训练WIoU开关改变。集成WIoU v3取α=1.9、δ=3、均值初值1、更新率1e−4、下限1e−7，比值和包围框对角线detach，中心距离保留梯度。EMA只平滑浮点参数/缓冲。
-
-### 支持模块与数据维度
-
-CBAM插在YOLOPAFPN相对的8个CSP主分支Bottleneck序列后、旁路拼接前：`backbone.dark2.1`、`backbone.dark3.1`、`backbone.dark4.1`、`backbone.dark5.2`、`C3_p4`、`C3_p3`、`C3_n3`、`C3_n4`。对应hidden channels为32/64/128/256/128/64/128/256，reduction=16，空间分支为无bias的7×7卷积、BN和sigmoid。
-
-640输入的三尺度特征是 `[B,128,80,80]`、`[B,256,40,40]`、`[B,512,20,20]`。原始预测为 `[B,8400,9]`，最后9维为cx/cy/w/h、objectness logit、4个class logit。逐类NMS后输出至多100个框。DIoU-NMS使用IoU减中心距平方/最小包围矩形对角线平方，抑制值>0.45的低分同类框。
-
-完整“章节/公式→文件/函数”表见 [论文—代码对应表](docs/02_paper_code_map.md)。
-
-## 项目内容
-
-```text
-configs/                 论文、baseline、integrated、合成smoke配置
-weights/                 模型文件目录
-scoa/
-  _vendor/               官方YOLOX 0.3.0实际模型与SimOTA源码
-  optics.py              椭圆高斯眩光、局部模糊/锐化、共享3候选
-  structure.py           光度守卫、参考tile、contrast-structure、顺序统计量
-  difficulty.py          固定原图SimOTA匹配、实例损失、类别平衡困难评分
-  selection.py           A/B/C/D、随机/异常回退、SMR-B与legacy
-  model.py               YOLOX-s构建、CBAM、WIoU-v3、EMA、优化器
-  data.py / basic.py     COCO、左上letterbox、Mosaic/affine/HSV/flip
-  augment.py             AM-photo与论文定义的AugMax-P
-  train.py               SGD/AMP训练、恢复、验证AP50选择EMA
-  evaluate.py            固定split/条件ID推理与评价
-  metrics.py             101点AP、10种IoU、缺陷micro P/R
-  postprocess.py         逐类标准NMS/DIoU-NMS，全局top100
-  infer.py / benchmark.py 单图推理、论文计时协议
-tools/                   数据检查、实验清单、审计、真实结果汇总
-tests/                   数学、边界、状态与实际前反向测试
-third_party/             上游来源、commit、SHA256、Apache-2.0许可证
-source_evidence/         本地论文核对材料；不随公开仓库分发
-experiments/             不带虚构实测结果的对照文件
-docs/                    论文理解、映射、验证与实验对照
-validation_records/      已实际执行的数值与流程检查记录
+```powershell
+git clone https://github.com/nanxing2138/SCOA-Blister-Detection.git
+cd SCOA-Blister-Detection
 ```
 
-全部命令在解压后的项目根目录运行。项目源码不使用用户电脑的绝对路径，也不会自动探测GPU型号或修改全局Python环境。
-
-## 1. 在另一台机器安装
-
-论文参考组合是 Python 3.9、torch 1.12.1、CUDA 11.6。建议用专用环境：
+GPU 参考依赖为 Python 3.9、PyTorch 1.12.1 和 CUDA 11.6，需配合兼容的 NVIDIA 驱动。Windows 下可创建独立环境：
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-torch-reference.txt
-python -m pip install -r requirements.txt
-python -m pip install -e .
+.venv\Scripts\python.exe -m pip install -r requirements-torch-reference.txt
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -e .
 ```
 
-Linux/macOS激活命令为 `source .venv/bin/activate`。CUDA参考组合适用于兼容的NVIDIA环境；这里不推断目标机器的驱动条件。CPU流程检查可选 Python 3.9–3.12 和 `requirements-cpu.txt`，替换第一条torch依赖安装命令；CPU检查组合与论文软件版本不同。
+下文的 `python` 指已安装依赖的环境中的 Python。Windows 可运行 `.venv\Scripts\Activate.ps1` 激活环境，或将命令中的 `python` 替换为 `.venv\Scripts\python.exe`。Linux 下使用 `.venv/bin/python`。
 
-若只做CPU流程检查，在独立环境中安装以下组合，**不要再叠加安装CUDA参考torch依赖文件**：
+若使用 CPU，在独立环境中改用以下依赖组合，不与上面的 CUDA 组合叠加安装：
 
 ```powershell
-python -m pip install -r requirements-cpu.txt
-python -m pip install -r requirements.txt
-python -m pip install -e .
+python -m venv .venv-cpu
+.venv-cpu\Scripts\python.exe -m pip install -r requirements-cpu.txt
+.venv-cpu\Scripts\python.exe -m pip install -r requirements.txt
+.venv-cpu\Scripts\python.exe -m pip install -e .
 ```
 
-论文作者报告的环境为Windows11、Python3.9、PyTorch1.12.1、CUDA11.6、cuDNN8.4.1、RTX3080Ti12GB和i7-12700K；这是实验设备记录，不是测得的最低硬件要求。本项目已运行验证使用隔离的Python3.12/torch2.2.2+cpu。完整300轮CUDA参考组合尚未验证。
-
-项目内模型与NMS不依赖torchvision编译算子；reference依赖文件仍保留论文年代对应的torchvision配对。不要把不同torch/torchvision版本任意混装。
-
-## 2. 最小可运行示例：合成数据闭环
+CPU 依赖固定为 PyTorch 2.2.2 / torchvision 0.17.2，支持的 Python 范围见 [pyproject.toml](pyproject.toml)。安装后可检查环境和源码：
 
 ```powershell
-python tools/make_synthetic.py
+python tools/verify_vendor.py
 python -m pytest -q
-python -m scoa.train --config configs/smoke.yaml --device cpu --threads 2
-python -m scoa.evaluate --config configs/smoke.yaml --checkpoint runs/synthetic_smoke/seed_42/best.pth --device cpu --threads 2 --output runs/synthetic_smoke/test.json
-python -m scoa.infer --checkpoint runs/synthetic_smoke/seed_42/best.pth --image data/synthetic/images/test_20001.png --device cpu --threads 2 --output runs/synthetic_smoke/inference
 ```
 
-这是64×64、1轮、随机初始化的**流程测试**。实际运行网络、SimOTA、损失、反向、SGD、EMA、保存与恢复、推理和AP评价；不会达到有意义的真实检测精度。**合成指标不能证明复现论文实验。** 重复训练时使用 `--set output=runs/smoke_second`；已有latest文件会阻止无意覆盖。
+## 数据准备
 
-也可一次执行并记录全部退出码：`python tools/run_smoke.py --output runs/new_verification`。当前已通过44个数值/状态/输入与评价一致性测试及完整合成训练闭环；详细边界见最新检查报告。默认会运行测试，不必另外重复执行一遍pytest。
-
-## 3. 准备真实数据与固定划分
-
-### 论文的数据划分
-
-论文§4.1报告8532张1920×1080图像，拍摄对象来自同一产线、同一产品。各类别目标数如下：
-
-| 划分 | 图像数 | medicine | empty | broke | lack | 总目标数 |
-|---|---:|---:|---:|---:|---:|---:|
-| train | 6826 | 59368 | 2452 | 1992 | 1328 | 65140 |
-| val | 853 | 7421 | 306 | 249 | 166 | 8142 |
-| test | 853 | 7421 | 307 | 249 | 166 | 8143 |
-
-同一物理泡罩、相邻帧和多视角应留在同一划分。论文固定图像/实体ID未公开；按相同比例另做随机划分并不等同原论文划分。项目不附带真实数据。
-
-### COCO目录与字段
+数据入口使用 COCO JSON 标注，默认目录为：
 
 ```text
 data/blister/
-  images/                  file_name相对该目录，可以含子目录
+  images/
   annotations/
     train.json
     val.json
     test.json
 ```
 
-使用COCO JSON，`categories`必须严格为：
+在 [configs/paper.yaml](configs/paper.yaml) 中设置 `data.root`、`image_dir` 及各划分的标注路径。图像的 `file_name` 相对于 `data.root/image_dir`。数据文件需另行准备，未包含在代码仓库中。
 
-```json
-[{"id":1,"name":"medicine"},{"id":2,"name":"empty"},{"id":3,"name":"broke"},{"id":4,"name":"lack"}]
-```
+类别映射固定如下；网络内部类别索引为对应 ID 减 1：
 
-每个annotation需要 `id,image_id,category_id,bbox:[x,y,w,h],iscrowd:0`，ignore省略或为0。每个image需要 `id,file_name,width,height`；建议增加 `entity_id` 供同一物理泡罩跨split检查。broke/lack标整腔体，每腔体一个类别。用**作者固定split ID**，不要自行随机重新划分后声称同划分复现。
+| COCO category_id | 类别 |
+|---|---|
+| 1 | medicine |
+| 2 | empty |
+| 3 | broke |
+| 4 | lack |
 
-下面只示意文件格式，图像文件需要自行提供；它不是论文中的真实样本或数据划分：
+每个图像条目包含 `id`、`file_name`、`width` 和 `height`；每个标注条目包含 `id`、`image_id`、`category_id` 和原图像素坐标的 `bbox: [x, y, width, height]`。`iscrowd` 和 `ignore` 省略或置为 0。`categories` 使用上表中的四组 ID 和名称。
 
-```json
-{
-  "images": [{"id": 1, "file_name": "train/example.png", "width": 1920, "height": 1080, "entity_id": "blister_0001"}],
-  "annotations": [{"id": 1, "image_id": 1, "category_id": 2, "bbox": [100, 120, 160, 200], "area": 32000, "iscrowd": 0, "ignore": 0}],
-  "categories": [{"id": 1, "name": "medicine"}, {"id": 2, "name": "empty"}, {"id": 3, "name": "broke"}, {"id": 4, "name": "lack"}]
-}
-```
-
-不要预先把标注归一化到0–1，也不要把框改成YOLO文本格式；当前数据入口读取原图像素坐标的COCO xywh。`file_name`相对 `data.root/image_dir`。原始uint8 BGR图像经双线性resize后，放在640×640画布左上角，padding=114；对论文1920×1080原图，有效内容为640×360，其他长宽比按原比例处理。网络收到BGR CHW float32、0–255；只有光学算子临时使用0–1，输出再乘255。连续框使用半开边界，像素按中心坐标归属区域。
+为避免数据泄漏，应将同一物理泡罩及其相邻帧／多视角图像放在同一划分；可在图像条目中增加 `entity_id` 供检查工具使用。完成配置后执行：
 
 ```powershell
-python tools/check_dataset.py --config configs/paper.yaml --paper-counts
+python tools/check_dataset.py --config configs/paper.yaml
 ```
 
-该工具检查图像解码、尺寸、框、类别、精确重复、已有实体ID跨split和论文数量。它不能替代相邻帧/近重复人工复核，也不能从数量证明split身份一致。外部组可各自提供一份COCO JSON，并在评价时覆盖 `data.test=annotations/external_illumination.json`；光学条件子集使用 `--ids fixed_stratum_ids.json`。
+工具检查图像解码、尺寸、类别、框、精确重复图像，以及已登记实体 ID 的跨划分重复情况。近重复图像和相邻帧仍需结合采集信息检查。
 
-若使用自己的数据而非论文原划分，可不传 `--paper-counts` 做格式检查；这只能支持新数据上的方法实验。要改变数据根目录，修改正式配置的 `data.root`；训练与评价必须使用同一根目录设置。标注检查工具没有 `--set` 参数，需要读取已编辑的配置。
+## 模型文件
 
-## 4. 正式核心训练与推理
+仓库提供 [weights/yolox_s.pth](weights/yolox_s.pth)，文件信息、校验值和加载方式见 [weights/README.md](weights/README.md)。默认训练配置通过 `train.pretrained` 读取此文件。
 
-### 论文训练设置
+## 训练
 
-| 设置 | 论文/正式配置 |
-|---|---|
-| 检测器 | YOLOX-s，官方0.3.0基底；depth=.33、width=.5 |
-| 输入、训练轮数、batch | 固定640×640、300轮、batch4 |
-| 优化器 | SGD，lr=.000625，momentum=.9，weight_decay=.0005，AMP |
-| 学习率 | 5轮warmup后cosine；本实现采用上游二次warmup、起点0、min_lr_ratio=.05 |
-| 基本几何增强 | 四图Mosaic；旋转±5°、平移±.10、scale .8–1.2、shear±2° |
-| 基本颜色/翻转 | HSV概率.8、gain5/30/30；水平翻转概率.5；MixUp关闭 |
-| 最后15轮 | 第286–300轮关闭Mosaic/affine，启用L1；分支内HSV/flip保留，光学分支未因此关闭 |
-| 光学候选 | 概率.20、J=3、幅度.5/1/1.5，结构4×4、q=.25、τ=.75 |
-| 困难排序 | C/D第15轮开启，class-balanced；EMA decay ramp见上方公式 |
-| 随机种子 | 42、3407、2026，分别训练；生成、选择与基本增强使用独立流 |
-| best选择 | 每轮验证，未舍入AP50最高的EMA；同分保留更早epoch |
+| 配置 | 内容 | 默认输出 |
+|---|---|---|
+| [configs/basic.yaml](configs/basic.yaml) | YOLOX-s 与基本增强 | `runs/basic/` |
+| [configs/paper.yaml](configs/paper.yaml) | SCOA 核心配置 D | `runs/scoa/` |
+| [configs/integrated.yaml](configs/integrated.yaml) | SCOA + CBAM + WIoU-v3，评价使用 DIoU-NMS | `runs/integrated/` |
 
-二次warmup、最小学习率比、Nesterov、BN/bias无decay及Mosaic具体抽样等属于从上游采用的实现选择，不能当作论文逐项披露的事实，详见后面的假设表。修改batch、轮数或输入尺寸会偏离本表；配置不会自动按新batch缩放学习率。
+默认设置为固定 640 × 640 输入、300 轮、batch size 4、随机种子 42。具体增强与优化参数以配置文件为准。
 
-### 训练与评价示例
+运行基线：
 
-准备好数据及对应配置后运行：
+```powershell
+python -m scoa.train --config configs/basic.yaml --device cuda
+```
+
+运行 SCOA 核心配置，并指定输出目录：
 
 ```powershell
 python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D
-python -m scoa.evaluate --config configs/paper.yaml --device cuda --checkpoint runs/D/seed_42/best.pth --set name=D --output runs/D/seed_42/test_standard.json
 ```
 
-### baseline、核心D与集成配置
-
-baseline直接运行 `python -m scoa.train --config configs/basic.yaml --device cuda`，输出到 `runs/basic/seed_42/`。上面的核心D示例输出到 `runs/D/seed_42/`。集成配置开启CBAM/WIoU/SCOA，最终评价用DIoU-NMS：
+运行集成配置：
 
 ```powershell
 python -m scoa.train --config configs/integrated.yaml --device cuda
-python -m scoa.evaluate --config configs/integrated.yaml --device cuda --checkpoint runs/integrated/seed_42/best.pth --output runs/integrated/seed_42/test_diou.json
-python -m scoa.evaluate --config configs/integrated.yaml --device cuda --checkpoint runs/integrated/seed_42/best.pth --set evaluation.nms=standard --set name=integrated-standard --output runs/integrated/seed_42/test_standard.json
 ```
 
-核心变体只需覆盖配置：`--set optical.policy=A`、`B`、`C`、`D`。baseline用 `configs/basic.yaml`；完整集成用 `configs/integrated.yaml`。正式运行保持640输入、300轮、batch4、三seed；不要把smoke配置用于论文结果。
+通过重复的 `--set key=value` 参数覆盖配置，例如 `--set train.seed=3407`。CPU 运行将 `--device cuda` 改为 `--device cpu`；需要时增加 `--threads 2`。
+
+核心候选池对照可通过 `optical.policy` 选择：
+
+| 策略 | 光度保护 | 结构筛查 | 可行候选选择 |
+|---|---|---|---|
+| A | 启用 | 关闭 | 均匀采样 |
+| B | 启用 | 启用 | 均匀采样 |
+| C | 启用 | 关闭 | EMA 难度选择 |
+| D | 启用 | 启用 | EMA 难度选择 |
+
+C / D 在第 1–14 轮均匀采样，第 15 轮开始按难度选择。无可行候选时使用保持标签不变的预处理原图；难度评分无效时在非空可行池中均匀采样。
+
+每个输出目录下按 `seed_<种子>` 保存：
+
+- `resolved_config.yaml`、`run_metadata.json`：本次运行配置与元信息。
+- `epochs.jsonl`、`candidates.jsonl`：逐轮指标与候选选择记录。
+- `latest.pth`：最近一轮的恢复检查点。
+- `best.pth`：按验证集未舍入 AP50 选择的 EMA 检查点；同分保留更早轮次。
+
+继续已有训练时使用同一配置和覆盖项：
 
 ```powershell
-python -m scoa.train --config configs/integrated.yaml --device cuda --set train.pretrained=weights/yolox_s.pth --set train.seed=3407
 python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D --resume runs/D/seed_42/latest.pth
-python -m scoa.infer --checkpoint runs/integrated/seed_3407/best.pth --image path/to/image.png --device cuda --nms diou --output runs/predict
 ```
 
-resume必须使用与原训练一致的配置覆盖项。例如用 `name=D` 训练，恢复也需附加该项。恢复允许改变数据根目录、输出目录、worker数量和预训练路径，其余训练设置与标注hash必须一致。保存epoch边界的全部optimizer/scaler/随机状态；不支持半个epoch断点恢复。
+保留该目录中的 `best.pth`。恢复从轮次边界继续；新实验请使用独立输出目录。
 
-可用 `--stop-after-epoch 1` 在第1轮末保存并停止，而不改变配置中的总轮数、学习率和增强计划，再用 `--resume`继续。`python tools/check_resume.py --output runs/new_resume_check --workers 1` 可重跑集成模型的CPU精确等价性检查；这项检查不证明跨设备/跨版本或中途半个epoch续训的逐bit一致。
+## 评价
 
-每个seed目录输出：`resolved_config.yaml`、`run_metadata.json`、`candidates.jsonl`、`epochs.jsonl`、`latest.pth`、`best.pth`。best只按未舍入验证AP50选EMA，平手保留更早轮。candidates记录共享draw、所有候选守卫、结构分数、可行集、被选索引、困难得分及实例损失/匹配索引；长训练日志可能较大。
+以下命令使用上述训练产生的四类检测检查点。评价配置的模型结构和输入尺寸须与选中检查点一致。
 
-checkpoint验证统一使用 `train.checkpoint_nms=standard`；`evaluation.nms=diou`只控制最终评价。这样完整集成与两种后处理复用同一权重，避免为每种NMS重新挑epoch。
-
-输出指标为0–1比例，论文为百分数。评价帧统一为letterbox输入坐标；单图展示时另换回原始图坐标，评价不混用两种坐标。
-
-单图推理会输出 `predictions.json` 和 `prediction.png`。JSON包含原图坐标 `xyxy_original`、输入帧坐标 `xyxy_input`、类别ID/名称与score；推理默认显示阈值.25，可用 `--score` 调整。该展示阈值不应替换AP评价的.001阈值。
-
-## 5. 三seed与组件实验
-
-先生成可审查的实验清单；加 `--execute` 才会依次执行。core=15次训练，components=24次训练，每个组件配置用两种NMS复用best权重，不能算额外训练复制。
+SCOA 核心配置：
 
 ```powershell
-python tools/experiment_matrix.py --suite core --pretrained weights/yolox_s.pth
-python tools/experiment_matrix.py --suite components --pretrained weights/yolox_s.pth --output experiments/components
-python tools/experiment_matrix.py --suite auxiliary --pretrained weights/yolox_s.pth --output experiments/auxiliary
+python -m scoa.evaluate --config configs/paper.yaml --checkpoint runs/D/seed_42/best.pth --device cuda --set name=D --output runs/D/seed_42/test.json
 ```
 
-执行示例：在以上命令末尾加 `--execute`。大规模实验请先完成数据与1个真实小运行检查；不会因为项目交付而自动启动300轮作业。
-
-如果只运行核心D的三seed实验，可在PowerShell中执行下面的循环。每个seed完成300轮训练后，用该seed的best EMA评价固定test；这些是正式实验命令，不属于快速smoke检查。
+集成配置：
 
 ```powershell
-foreach ($experimentSeed in 42,3407,2026) {
-    python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D --set "train.seed=$experimentSeed"
-    if ($LASTEXITCODE -ne 0) { throw "Training failed for seed $experimentSeed" }
-    python -m scoa.evaluate --config configs/paper.yaml --device cuda --checkpoint "runs/D/seed_$experimentSeed/best.pth" --set name=D --output "runs/D/seed_$experimentSeed/test_standard.json"
-    if ($LASTEXITCODE -ne 0) { throw "Evaluation failed for seed $experimentSeed" }
-}
+python -m scoa.evaluate --config configs/integrated.yaml --checkpoint runs/integrated/seed_42/best.pth --device cuda --output runs/integrated/seed_42/test_diou.json
 ```
 
-S1=`optical.policy=B, optical.structure_mode=whole`；S2为`mean`；S3/B为`quantile`。这些训练阈值均为0.75；论文表1(b)另外校准的审核阈值不应替换训练阈值。D-instance覆盖 `optical.difficulty_average=instance`。
+默认评价测试集；通过 `--split val` 改为验证集，或通过 `--ids path/to/image_ids.json` 指定图像 ID 列表。默认置信度过滤阈值为 0.001，NMS 阈值为 0.45，最多保留 100 个检测结果；P/R 工作点阈值为 0.25。参数可在 `evaluation` 配置中调整。
 
-SMR-B必须有D离线日志及10个stage/stratum的真实统计。不要伪造缺失stratum：
+评价输出指标 JSON 和同名 `.predictions.json` 文件，并记录选中轮次、检查点与标注文件校验值、评价图像 ID 和后处理设置。
+
+## 单图推理
 
 ```powershell
-python tools/fit_smr.py --logs runs/D/seed_42/candidates.jsonl runs/D/seed_3407/candidates.jsonl runs/D/seed_2026/candidates.jsonl --output experiments/smr_weights.json
-python -m scoa.train --config configs/paper.yaml --device cuda --set optical.policy=SMR-B --set optical.smr_weights=experiments/smr_weights.json --set train.pretrained=weights/yolox_s.pth --set name=SMR-B --set output=runs/SMR-B
+python -m scoa.infer --checkpoint runs/integrated/seed_42/best.pth --image path/to/image.png --device cuda --output runs/predict
 ```
 
-拟合工具给出正权重与各层幅度差；如果缺某seed/stage/stratum，正式训练会报错。新拟合的权重不是作者未公开的权重。legacy、AM-photo、AugMax-P可通过policy选择。legacy原始实现未公开，本项目按文中10次first-accepted规则重建；AM-photo的PIL量化和算子细节也属于显式实现假设。AugMax-P实现论文适配，不等同AugMax-DuBIN。
+输出 `runs/predict/predictions.json` 和 `runs/predict/prediction.png`。可用 `--score 0.25` 设置置信度阈值，用 `--nms standard` 或 `--nms diou` 指定后处理。
 
-## 6. 真实结果对照、人工审核与计时
+## 使用说明与反馈
 
-### 评价协议：论文§4.4
-
-| 项目 | 本项目按论文执行的规则 |
-|---|---|
-| 检测score | objectness概率 × 最大类别概率，按YOLOX方式确定预测类别 |
-| AP保留阈值 | score≥.001，按分数降序做同类一对一匹配 |
-| AP采样 | 101个recall坐标；IoU=.50,.55,…,.95，共10个阈值 |
-| AP50/AP75 | 在相应IoU阈值上对四类AP平均 |
-| AP50:95 | 对四类、十个IoU阈值的AP平均 |
-| Precision/Recall | score≥.25、IoU≥.50；重复框算FP，错类按同类匹配形成FP/FN |
-| Defect P/R | 合并empty/broke/lack的TP/FP/FN后计算，不能先算逐类P/R再平均 |
-| 抑制与数量 | 逐类标准或DIoU-NMS，阈值.45；抑制后全部类别一起取top100 |
-| 坐标与ignore | 640×640输入帧、连续坐标、ignore=iscrowd=0 |
-
-缺陷指标为：
-
-$$
-P_D=\frac{\sum_{c\in D}TP_c}{\sum_{c\in D}(TP_c+FP_c)},\qquad R_D=\frac{\sum_{c\in D}TP_c}{\sum_{c\in D}(TP_c+FN_c)},\quad D=\{\mathrm{empty,broke,lack}\}.
-$$
-
-机器输出用0–1比例，乘100才是论文的百分数。工具对无分母的指标输出 `null`；在自定义子集上，AP会排除没有GT的类别，因此缺类子集的AP不能直接等同全四类测试AP。正式论文test含全部四类。
-
-### 三seed统计与实际结果汇总
-
-```powershell
-python tools/compare_results.py --output experiments/paper_comparison.json
-python tools/compare_results.py --results runs/D/seed_42/test_standard.json runs/D/seed_3407/test_standard.json runs/D/seed_2026/test_standard.json --output experiments/comparison_actual.json
-```
-
-不传结果会生成参考值和null实测值；传入真实逐seedtest JSON后才计算实际均值、样本SD和配对差。三个required seed状态会独立标记。工具拒绝synthetic记录、val/train记录和重复seed；用户仍需确认标注hash和固定split身份。组件清单中的名字为 `D_C1W1` 等，比较整体论文数值前需在真实评价时设置 `name=integrated`，并使用DIoU-NMS；baseline为 `name=basic`，核心为 `name=A/B/C/D`。
-
-结果汇总还会核对实际评价图像ID、标注hash、640坐标帧、阈值、NMS与训练组件。`integrated`对应论文DIoU参考74.03；`integrated-standard`对应标准NMS参考73.78。同一标注文件的不同子集不能混为同一test集合；较早版本缺少评价ID签名的JSON需要重新运行评价。
-
-可选的官方COCOapi数值对照：安装 `requirements-evaluation-optional.txt`，运行 `python tools/coco_crosscheck.py`；也可传 `--records path/to/test.predictions.json` 检查真实预测。当前固定诊断样例的最大AP误差约1.1e−16；它不等同作者未公开评价器的逐项恢复。
-
-汇总使用seed42/3407/2026的均值和样本标准差（分母n−1）。B−A、D−B等配对效应应先在同seed未舍入数值上相减，再汇总；不能从论文的均值±SD反推逐seed结果。评价JSON保留 `seed`、`selected_epoch`、权重/标注SHA256、`synthetic`、坐标帧和后处理方式，可追溯每次结果。
-
-### 人工cue审计与外部条件
-
-人工cue审计CSV列为 `pair_id,source_entity_id,rule,class,accepted,label`。label只能为discernible/lost/uncertain/ambiguous_reference；rule区分photo和structure。每个(pair_id,rule)一条最终仲裁记录，不能把两名评分者当两个独立样本。
-
-```powershell
-python tools/audit_cues.py --csv real_review.csv --output experiments/cue_audit_actual.json
-python -m scoa.benchmark --checkpoint runs/integrated/seed_42/best.pth --image path/to/real.png --device cuda --output experiments/latency_actual.json
-```
-
-审核工具只汇总真实的人工判读，不会用结构分数自动生成语义标签。论文校准集150对、独立审核300对，另有120个选中输出对；需要保留源图/实体分离与两名评分者初评、仲裁记录。接受cue loss的分母仅含接受后明确的discernible/lost对，拒绝率的分母为全部discernible对，uncertain与ambiguous reference应单列。
-
-论文的内部glare分级数量为420/283/150，transmission为400/300/153；外部batch/illumination/packaging为300/240/300。复核这些结果需要作者相应固定ID、ROI及原图。`--ids`只按给定ID筛选，不会根据图像自动恢复论文分级。分层AP分别计算，不能按图像数加权平均来还原完整test AP。
-
-计时默认3轮，每轮200 warmup、1000计时；CPU单调钟包围预处理、传输、网络和后处理并同步GPU，CUDA events前向另记。它不衡量生产线持续吞吐。训练日志时间不包括验证与checkpoint写盘，也不含DataLoader等候；与论文完整epoch时间的对照应在目标机器按相同监测窗口补测。
-
-## 论文结果与实际验证状态
-
-下表的AP50:95来自论文表2/3/5/8，单位为%，均为三seed均值±样本SD。**“论文报告”不是本项目在真实数据上测出的结果。**
-
-| 配置 | 论文报告AP50:95 | 论文位置 | 本项目真实数据实测 |
-|---|---:|---|---|
-| basic-only YOLOX-s | 66.53±0.43 | 表2(a) | 尚未运行 |
-| A：共享池随机 | 68.35±0.34 | 表2(a) | 尚未运行 |
-| B：结构+随机 | 69.45±0.39 | 表2(a) | 尚未运行 |
-| C：光度+困难 | 69.05±0.28 | 表2(a) | 尚未运行 |
-| D：SCOA | 70.05±0.40 | 表2(a) | 尚未运行 |
-| SCOA+CBAM+WIoU，标准NMS | 73.78±0.40 | 表3 | 尚未运行 |
-| 同一集成权重，DIoU-NMS | 74.03±0.42 | 表3 | 尚未运行 |
-| SMR-B | 69.88±0.41 | 表2(a) | 尚未运行，另缺作者拟合权重 |
-| AM-photo | 68.95±0.36 | 表2(a) | 尚未运行 |
-| AugMax-P | 69.95±0.24 | 表8(a) | 尚未运行 |
-
-目前已实际完成的检查如下，证据见 [验证记录](docs/03_validation.md) 及 `validation_records/20261027/`：
-
-| 检查范围 | 实际完成内容 | 能说明什么 |
-|---|---|---|
-| 数学/维度/状态 | 44项测试通过；涵盖tile、评分、EMA、WIoU、NMS、L1、半精度大框与输入校验 | 实现与所列数学/工程约束一致 |
-| epoch续训 | 集成模型连续2轮与1轮后恢复再1轮的模型/EMA/优化器等状态精确一致；workers=1 | 当前CPU组合的epoch边界续训可复现 |
-| 合成闭环 | 核心和集成的训练、SGD/EMA、checkpoint加载、评价、单图推理 | 小规模程序流程可执行 |
-| 评价器 | 与pycocotools固定诊断样例的AP最大绝对误差约1.1e−16 | 该样例下符合COCO式AP语义 |
-| 真实实验 | 固定split图像/标签与作者档案缺失 | 当前不能核验论文AP、cue比例或时延 |
-
-随机初始化的64输入、1轮合成验证AP为0，是实际小流程输出，既不能证明也不能否定论文方法的真实效果。严禁把它或COCO诊断样例的AP填入论文对照列。
-
-## 7. 已知边界
-
-### 论文已说明、实现假设和缺失材料
-
-| 类型 | 内容 | 对复现的影响 |
-|---|---|---|
-| 论文明确说明 | 候选数/幅度、光度阈值、结构网格/分位、困难选择起始轮、损失权重、主要训练/评价设置 | 正式配置直接落实 |
-| 从上游采用的实现选择 | Nesterov、BN/bias无decay、二次warmup、min_lr_ratio=.05、Mosaic概率1及具体抽样 | 影响收敛，不能声称作者逐项确认 |
-| 光学/数值实现选择 | OpenCV BORDER_REFLECT_101、光学结果回到0–255时保留float32 | 作者仅说明反射边界/输入表示，像素细节可能不同 |
-| 随机与采样选择 | seed/epoch/image-ID/stream稳定哈希；有限shuffle、不截断最后batch | A–D池内可对应，但不保证与作者随机轨迹相同 |
-| 其它状态/验证选择 | WIoU按非空训练forward更新均值；统一标准NMS验证AP50选checkpoint | 更新粒度/选择器细节需作者源码确认 |
-| 数值稳定修复 | AMP训练解码、平方IoU与匹配IoU改为FP32算术，数学公式不变 | 降低FP16面积/指数运算溢出的风险；GPU完整训练仍未验证 |
-| 未公开材料 | 真实数据及固定split ID、SMR采样系数、自定义评价器和逐seed档案 | 不能证明同划分或全部结果复现 |
-
-- 当前可交付的是核心/配套/上述辅助策略的运行实现；真实8532图实验、840张外部条件、人工审核、曲线与时延尚需真实材料。
-- 没有实现YOLOv8s或RT-DETR的独立训练仓库适配器；它们属于横向系统比较，不能以此项目中的YOLOX结果代替。论文未公开其全部配置，因此这部分仍未复现。
-- 论文没有披露所有随机抽样与优化细节。独立随机流、SGD默认、Mosaic与反射模式等见信息缺口表；相同数字种子不能保证与作者逐步一致。
-- 参考torch1.12.1/CUDA11.6完整300轮尚未验证。隔离CPU验证只覆盖验证记录中明确列出的组合。确定性算法无法保证跨平台/版本逐bit相同。
-- 合成smoke的checkpoint只供流程检查。
-
-此外，本项目实际参数数为8,938,843（核心）和8,964,445（集成），而论文记为8.910M/8.936M。当前无法确定是统计口径还是未公开结构细节导致；保留官方基底与论文指定插入点，不为匹配舍入数字改造网络。
-
-完整信息清单见 [论文理解与复现方案](docs/01_paper_and_plan.md)，逐项实验边界见 [实验对照](docs/04_experiment_comparison.md)。
-
-## 常见运行问题
-
-| 现象 | 处理方式 |
-|---|---|
-| 找不到 `data/blister/annotations/train.json` | 真实数据未附带。准备COCO目录，或用 `configs/smoke.yaml` 跑合成流程 |
-| 检查点缺少config/ema字段 | 使用包含程序所需字段的检查点，并核对加载接口 |
-| 已有latest.pth，训练拒绝继续 | 用相同设置 `--resume`，或通过 `--set output=runs/new_run` 新建输出 |
-| resume配置/标注hash变化 | 复用原配置中的name、模型、seed和训练设置；不要换split后沿用旧优化器状态 |
-| evaluation model/input_size不匹配 | 选择与checkpoint一致的config；完整集成不能用纯baseline配置评价 |
-| 没有CUDA或只想检查流程 | 安装CPU依赖，使用 `--device cpu --threads 2`；正式GPU训练结果仍待验证 |
-| 缺陷precision为null | 阈值下没有缺陷预测，分母为0；它不是0%或100%，不要擅自填值 |
-| SMR-B缺少seed/stage/stratum | 先收集真实D日志并拟合；未观测的层不会由工具伪造 |
+- 修改数据集路径后，训练和评价应使用一致的路径及类别映射。
+- 比较不同策略时，应固定数据划分、随机种子、模型配置和评价设置。
+- 长时间训练的候选日志可能较大，运行前请预留输出空间。
+- 提交问题时请附运行命令、配置、Python / PyTorch 版本及错误信息，可通过 [Issues](https://github.com/nanxing2138/SCOA-Blister-Detection/issues) 反馈。
 
 ## 来源与许可
 
-检测基底固定到[YOLOX 0.3.0](https://github.com/Megvii-BaseDetection/YOLOX/tree/0.3.0)，commit记录在`third_party/upstream.json`，上游模型源码文件SHA256记录在`third_party/model_file_sha256.json`。保留[Apache-2.0许可证](third_party/YOLOX/LICENSE)。本地最小vendor副本只有head utils导入改动；未重写或替换SimOTA为假算法。
-
-WIoU算术对照[作者源码](https://github.com/Instinct323/Wise-IoU/blob/v2/iou.py)，参数使用上传论文的1.9/3.0/1e−4，不套用上游当前默认。CBAM结构对照[作者实现](https://github.com/Jongchan/attention-module/blob/master/MODELS/cbam.py)，插入位置以本论文§3.5为准。
+YOLOX 模型代码基于 [Megvii-BaseDetection/YOLOX 0.3.0](https://github.com/Megvii-BaseDetection/YOLOX/tree/0.3.0)。第三方许可证见 [third_party/YOLOX/LICENSE](third_party/YOLOX/LICENSE)，来源与适配记录见 [NOTICE.md](NOTICE.md)、[third_party/upstream.json](third_party/upstream.json) 和 [third_party/model_file_sha256.json](third_party/model_file_sha256.json)。

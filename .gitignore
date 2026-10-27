@@ -21,6 +21,8 @@ __pycache__/
 *.pt
 *.ckpt
 *.onnx
+# Publish only the explicitly selected model file
+!/weights/yolox_s.pth
 *.zip
 
 # Local credential configuration

@@ -8,4 +8,4 @@
 
 源码包不包含隔离Python运行时、任何真实药品数据或合成训练checkpoint。当前检查版交付包包含官方COCO预训练权重及来源校验记录；权重来自YOLOX官方release，遵循其上游发布条款，不属于论文作者公开的药品检测模型。`validation_records` 包含明确标为synthetic/diagnostic的流程检查和COCO权重迁移检查；不可用作论文真实实验的替代证据。
 
-公开仓库不包含本地论文提取材料 `source_evidence`、数据目录、训练输出、交付压缩包、隔离Python环境或权重二进制；官方预训练权重的获取方式见 `weights/README.md`。既有检查记录描述其实际执行范围，不代表论文全部实验已复现。
+公开仓库不包含本地论文提取材料 `source_evidence`、数据目录、训练输出、交付压缩包或隔离Python环境。仓库提供 `weights/yolox_s.pth` 作为训练初始化文件，来源、校验值与使用方式见 `weights/README.md`。既有检查记录描述其实际执行范围，不代表论文全部实验已复现。
