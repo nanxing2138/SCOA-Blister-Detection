@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "old_project_absent": true,
+  "loaded_tensors": 456,
+  "finite_forward": true,
+  "output_shape": [
+    1,
+    84,
+    9
+  ],
+  "module": "D:\\yaopindaima\\scoa\\__init__.py"
+}

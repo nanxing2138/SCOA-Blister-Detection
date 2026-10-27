@@ -1,0 +1,7 @@
+{
+  "baseline_parameters": 8938843,
+  "integrated_parameters": 8964445,
+  "added_cbam_parameters": 25602,
+  "count_method": "sum(p.numel() for p in model.parameters())",
+  "source": "actual model construction command on 2026-10-27"
+}

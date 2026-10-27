@@ -1,0 +1,2 @@
+# Only needed for tools/coco_crosscheck.py, not training or the custom evaluator.
+pycocotools==2.0.11

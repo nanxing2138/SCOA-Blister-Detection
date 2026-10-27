@@ -1,0 +1,17 @@
+{
+  "status": "completed",
+  "mode": "recycle_bin",
+  "destination": "D:\\yaopindaima",
+  "old_project": "C:\\Users\\14406\\Documents\\药品\\enhanced_yolox_reproduction",
+  "old_archives_and_checksums": [
+    "C:\\Users\\14406\\Documents\\药品\\SCOA_reproduction_20261027.zip",
+    "C:\\Users\\14406\\Documents\\药品\\SCOA_reproduction_20261027.sha256.txt",
+    "C:\\Users\\14406\\Documents\\药品\\SCOA_reproduction_with_weights_20261027.zip",
+    "C:\\Users\\14406\\Documents\\药品\\SCOA_reproduction_with_weights_20261027.sha256.txt",
+    "C:\\Users\\14406\\Documents\\药品\\SCOA_reproduction_with_weights_README_20261027.zip",
+    "C:\\Users\\14406\\Documents\\药品\\SCOA_reproduction_with_weights_README_20261027.sha256.txt"
+  ],
+  "original_project_absent": true,
+  "protected_original_document_preserved": true,
+  "completed_utc": "2026-10-27T02:19:27.8364734+00:00"
+}

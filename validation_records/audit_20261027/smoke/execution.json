@@ -1,0 +1,152 @@
+{
+  "started_utc": "2026-10-27T02:07:00.145963+00:00",
+  "scope": "synthetic_code_flow_only",
+  "commands": [
+    {
+      "argv": [
+        "tools/verify_vendor.py"
+      ],
+      "exit_code": 0,
+      "log": "00.log"
+    },
+    {
+      "argv": [
+        "-m",
+        "compileall",
+        "-q",
+        "scoa",
+        "tools",
+        "tests"
+      ],
+      "exit_code": 0,
+      "log": "01.log"
+    },
+    {
+      "argv": [
+        "tools/make_synthetic.py"
+      ],
+      "exit_code": 0,
+      "log": "02.log"
+    },
+    {
+      "argv": [
+        "tools/check_dataset.py",
+        "--config",
+        "configs/smoke.yaml",
+        "--output",
+        "runs\\audit_20261027\\smoke\\dataset_check.json"
+      ],
+      "exit_code": 0,
+      "log": "03.log"
+    },
+    {
+      "argv": [
+        "-m",
+        "scoa.train",
+        "--config",
+        "configs/smoke.yaml",
+        "--device",
+        "cpu",
+        "--threads",
+        "2",
+        "--set",
+        "output=runs\\audit_20261027\\smoke/core"
+      ],
+      "exit_code": 0,
+      "log": "04.log"
+    },
+    {
+      "argv": [
+        "-m",
+        "scoa.train",
+        "--config",
+        "configs/smoke.yaml",
+        "--device",
+        "cpu",
+        "--threads",
+        "2",
+        "--set",
+        "output=runs\\audit_20261027\\smoke/integrated",
+        "--set",
+        "model.cbam=true",
+        "--set",
+        "model.wiou=true",
+        "--set",
+        "evaluation.nms=diou"
+      ],
+      "exit_code": 0,
+      "log": "05.log"
+    },
+    {
+      "argv": [
+        "-m",
+        "scoa.evaluate",
+        "--config",
+        "configs/smoke.yaml",
+        "--checkpoint",
+        "runs\\audit_20261027\\smoke\\core\\seed_42\\best.pth",
+        "--device",
+        "cpu",
+        "--threads",
+        "2",
+        "--output",
+        "runs\\audit_20261027\\smoke\\synthetic_test.json"
+      ],
+      "exit_code": 0,
+      "log": "06.log"
+    },
+    {
+      "argv": [
+        "-m",
+        "scoa.evaluate",
+        "--config",
+        "configs/smoke.yaml",
+        "--checkpoint",
+        "runs\\audit_20261027\\smoke\\integrated\\seed_42\\best.pth",
+        "--device",
+        "cpu",
+        "--threads",
+        "2",
+        "--set",
+        "model.cbam=true",
+        "--set",
+        "model.wiou=true",
+        "--set",
+        "evaluation.nms=diou",
+        "--output",
+        "runs\\audit_20261027\\smoke\\synthetic_integrated_test.json"
+      ],
+      "exit_code": 0,
+      "log": "07.log"
+    },
+    {
+      "argv": [
+        "-m",
+        "scoa.infer",
+        "--checkpoint",
+        "runs\\audit_20261027\\smoke\\core\\seed_42\\best.pth",
+        "--image",
+        "data/synthetic/images/test_20001.png",
+        "--device",
+        "cpu",
+        "--threads",
+        "2",
+        "--output",
+        "runs\\audit_20261027\\smoke\\inference"
+      ],
+      "exit_code": 0,
+      "log": "08.log"
+    },
+    {
+      "argv": [
+        "tools/compare_results.py",
+        "--output",
+        "experiments/paper_comparison.json"
+      ],
+      "exit_code": 0,
+      "log": "09.log"
+    }
+  ],
+  "status": "passed",
+  "finished_utc": "2026-10-27T02:07:43.442230+00:00"
+}

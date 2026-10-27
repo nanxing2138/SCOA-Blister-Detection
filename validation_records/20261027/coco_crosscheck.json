@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "fixture": "fixed_diagnostic_not_paper_data",
+  "custom": {
+    "AP50_95": 0.5912953795379539,
+    "AP50": 0.7718646864686469,
+    "AP75": 0.584983498349835
+  },
+  "cocoapi": {
+    "AP50_95": 0.5912953795379537,
+    "AP50": 0.7718646864686469,
+    "AP75": 0.584983498349835
+  },
+  "absolute_differences": {
+    "AP50_95": 1.1102230246251565e-16,
+    "AP50": 0.0,
+    "AP75": 0.0
+  },
+  "pycocotools_maxDets": [
+    1,
+    10,
+    100
+  ],
+  "limit": "COCO maxDets is per category; paper input records must already have global top100 applied."
+}

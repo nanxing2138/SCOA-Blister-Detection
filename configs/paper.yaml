@@ -1,0 +1,62 @@
+name: scoa
+data:
+  root: data/blister
+  train: annotations/train.json
+  val: annotations/val.json
+  test: annotations/test.json
+  image_dir: images
+model:
+  depth: 0.33
+  width: 0.5
+  cbam: false
+  wiou: false
+train:
+  epochs: 300
+  batch_size: 4
+  input_size: 640
+  lr: 0.000625
+  momentum: 0.9
+  weight_decay: 0.0005
+  nesterov: true
+  warmup_epochs: 5
+  warmup_lr: 0.0
+  min_lr_ratio: 0.05
+  no_aug_epochs: 15
+  amp: true
+  seed: 42
+  workers: 0
+  deterministic: true
+  val_every: 1
+  checkpoint_nms: standard
+  log_every: 25
+  pretrained: weights/yolox_s.pth
+  allow_scratch: false
+basic:
+  mosaic_prob: 1.0
+  degrees: 5.0
+  translate: 0.10
+  scale: [0.8, 1.2]
+  shear: 2.0
+  hsv_prob: 0.8
+  hsv_gains: [5, 30, 30]
+  flip_prob: 0.5
+optical:
+  policy: D
+  probability: 0.20
+  amplitudes: [0.5, 1.0, 1.5]
+  grid: 4
+  variance_threshold: 0.0001
+  epsilon_q: 0.0001
+  quantile: 0.25
+  structure_threshold: 0.75
+  structure_mode: quantile
+  hard_start_epoch: 15
+  difficulty_average: class
+  smr_weights: null
+evaluation:
+  score_threshold: 0.001
+  pr_threshold: 0.25
+  nms_threshold: 0.45
+  nms: standard
+  max_detections: 100
+output: runs/scoa

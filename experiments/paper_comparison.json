@@ -1,0 +1,86 @@
+{
+  "units": "percentage_points",
+  "results": {
+    "basic": {
+      "paper_mean": 66.53,
+      "paper_sample_sd": 0.43,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "A": {
+      "paper_mean": 68.35,
+      "paper_sample_sd": 0.34,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "B": {
+      "paper_mean": 69.45,
+      "paper_sample_sd": 0.39,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "C": {
+      "paper_mean": 69.05,
+      "paper_sample_sd": 0.28,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "D": {
+      "paper_mean": 70.05,
+      "paper_sample_sd": 0.4,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "integrated": {
+      "paper_mean": 74.03,
+      "paper_sample_sd": 0.42,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "integrated-standard": {
+      "paper_mean": 73.78,
+      "paper_sample_sd": 0.4,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "SMR-B": {
+      "paper_mean": 69.88,
+      "paper_sample_sd": 0.41,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "AM-photo": {
+      "paper_mean": 68.95,
+      "paper_sample_sd": 0.36,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    },
+    "AugMax-P": {
+      "paper_mean": 69.95,
+      "paper_sample_sd": 0.24,
+      "actual": null,
+      "status": "not_verified_missing_real_data",
+      "required_seeds_complete": false,
+      "difference_from_paper": null
+    }
+  },
+  "paired_effects": {}
+}

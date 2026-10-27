@@ -1,0 +1,8 @@
+{
+  "network_blocks.py": "f490240a674799f1b548ac4ca571c7f3e59d4e75efee8ebeb1e24e6e4e10d2a4",
+  "darknet.py": "368c9db45166e863691cf7460b314d047928f90e8744c492a673b6eff9b809f3",
+  "yolo_pafpn.py": "8571af557f6caacda61e54813be4be2d73c4a0889e1f876ec5586057eb2eebde",
+  "yolo_head.py": "9fcdcf859b91c587d11926c0a8e3e423abdaa53504eb8ad2a17379ee405378bd",
+  "losses.py": "7fa685fb4653bab69d5880c3f749edeb8a4cabfe71fadf0acc5151c2eaa75702",
+  "yolox.py": "3b88f3b19e27232ab5442b4d2c53b20d3f1e40f6f093871d6742e694368f6da0"
+}

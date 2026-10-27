@@ -1,0 +1,29 @@
+# Python environments and generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+/.validation_env/
+/.venv/
+/venv/
+*.egg-info/
+/build/
+/dist/
+
+# Local data, outputs, paper evidence and delivery packages
+/data/
+/runs/
+/delivery/
+/source_evidence/
+/docs/history/
+
+# Downloaded or trained model binaries
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.zip
+
+# Local credential configuration
+.env
+.env.*
+!.env.example

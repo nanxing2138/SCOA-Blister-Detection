@@ -1,0 +1,12 @@
+epoch=1/2 batch=1/2 loss=9.944147 lr=0.00062500
+epoch=1/2 batch=2/2 loss=10.014993 lr=0.00032812
+{"epoch": 1, "seed": 42, "mean_loss": 9.979569911956787, "training_step_seconds": 1.3710635000024922, "successful_updates": 2, "amp_skipped_updates": 0, "peak_allocated_gib": null, "validation": {"AP50": 0.0, "AP75": 0.0, "AP50_95": 0.0, "defect_precision": null, "defect_recall": 0.0}, "checkpoint_nms": "standard"}
+epoch=2/2 batch=1/2 loss=11.157829 lr=0.00003125
+epoch=2/2 batch=2/2 loss=11.406416 lr=0.00003125
+{"epoch": 2, "seed": 42, "mean_loss": 11.282122611999512, "training_step_seconds": 1.16994320001686, "successful_updates": 2, "amp_skipped_updates": 0, "peak_allocated_gib": null, "validation": {"AP50": 0.0, "AP75": 0.0, "AP50_95": 0.0, "defect_precision": null, "defect_recall": 0.0}, "checkpoint_nms": "standard"}
+epoch=1/2 batch=1/2 loss=9.944147 lr=0.00062500
+epoch=1/2 batch=2/2 loss=10.014993 lr=0.00032812
+{"epoch": 1, "seed": 42, "mean_loss": 9.979569911956787, "training_step_seconds": 0.9865550000104122, "successful_updates": 2, "amp_skipped_updates": 0, "peak_allocated_gib": null, "validation": {"AP50": 0.0, "AP75": 0.0, "AP50_95": 0.0, "defect_precision": null, "defect_recall": 0.0}, "checkpoint_nms": "standard"}
+epoch=2/2 batch=1/2 loss=11.157829 lr=0.00003125
+epoch=2/2 batch=2/2 loss=11.406416 lr=0.00003125
+{"epoch": 2, "seed": 42, "mean_loss": 11.282122611999512, "training_step_seconds": 0.7634776000340935, "successful_updates": 2, "amp_skipped_updates": 0, "peak_allocated_gib": null, "validation": {"AP50": 0.0, "AP75": 0.0, "AP50_95": 0.0, "defect_precision": null, "defect_recall": 0.0}, "checkpoint_nms": "standard"}

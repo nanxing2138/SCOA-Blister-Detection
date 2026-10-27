@@ -1,0 +1,92 @@
+{
+  "synthetic": true,
+  "config": {
+    "name": "synthetic_smoke_only",
+    "data": {
+      "root": "data/synthetic",
+      "train": "annotations/train.json",
+      "val": "annotations/val.json",
+      "test": "annotations/test.json",
+      "image_dir": "images"
+    },
+    "model": {
+      "depth": 0.33,
+      "width": 0.5,
+      "cbam": false,
+      "wiou": false
+    },
+    "train": {
+      "epochs": 1,
+      "batch_size": 2,
+      "input_size": 64,
+      "lr": 0.000625,
+      "momentum": 0.9,
+      "weight_decay": 0.0005,
+      "nesterov": true,
+      "warmup_epochs": 0,
+      "warmup_lr": 0.0,
+      "min_lr_ratio": 0.05,
+      "no_aug_epochs": 0,
+      "amp": false,
+      "seed": 42,
+      "workers": 0,
+      "deterministic": true,
+      "val_every": 1,
+      "checkpoint_nms": "standard",
+      "log_every": 1,
+      "pretrained": null,
+      "allow_scratch": true
+    },
+    "basic": {
+      "mosaic_prob": 1.0,
+      "degrees": 5.0,
+      "translate": 0.1,
+      "scale": [
+        0.8,
+        1.2
+      ],
+      "shear": 2.0,
+      "hsv_prob": 0.8,
+      "hsv_gains": [
+        5,
+        30,
+        30
+      ],
+      "flip_prob": 0.5
+    },
+    "optical": {
+      "policy": "D",
+      "probability": 1.0,
+      "amplitudes": [
+        0.5,
+        1.0,
+        1.5
+      ],
+      "grid": 4,
+      "variance_threshold": 0.0001,
+      "epsilon_q": 0.0001,
+      "quantile": 0.25,
+      "structure_threshold": 0.75,
+      "structure_mode": "quantile",
+      "hard_start_epoch": 1,
+      "difficulty_average": "class",
+      "smr_weights": null
+    },
+    "evaluation": {
+      "score_threshold": 0.001,
+      "pr_threshold": 0.25,
+      "nms_threshold": 0.45,
+      "nms": "standard",
+      "max_detections": 100
+    },
+    "output": "runs\\verification_20261027/core"
+  },
+  "data_sha256": {
+    "train": "af92635175ff8ce1032feb283d16f6d004130aca368e778aad2d64aacab62828",
+    "val": "7f927ae87756ef819dc361239fe5b60c8d8ecb76d70c5c02c6710f9014fdf482"
+  },
+  "pretrained": null,
+  "torch_version": "2.2.2+cpu",
+  "method_status": "paper_driven_reconstruction",
+  "hardware_probed": false
+}

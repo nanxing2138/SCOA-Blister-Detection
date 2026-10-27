@@ -1,0 +1,9 @@
+{
+  "url": "https://api.github.com/repos/Megvii-BaseDetection/YOLOX/git/ref/tags/0.3.0",
+  "tag": "0.3.0",
+  "object": {
+    "sha": "419778480ab6ec0590e5d3831b3afb3b46ab2aa3",
+    "type": "commit",
+    "url": "https://api.github.com/repos/Megvii-BaseDetection/YOLOX/git/commits/419778480ab6ec0590e5d3831b3afb3b46ab2aa3"
+  }
+}

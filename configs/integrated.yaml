@@ -1,0 +1,8 @@
+extends: paper.yaml
+name: integrated
+model:
+  cbam: true
+  wiou: true
+evaluation:
+  nms: diou
+output: runs/integrated

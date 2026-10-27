@@ -1,0 +1,1 @@
+{"epoch": 1, "seed": 42, "mean_loss": 9.591044425964355, "training_step_seconds": 4.078000100009376, "successful_updates": 2, "amp_skipped_updates": 0, "peak_allocated_gib": null, "validation": {"AP50": 0.0, "AP75": 0.0, "AP50_95": 0.0, "defect_precision": null, "defect_recall": 0.0}, "checkpoint_nms": "standard"}

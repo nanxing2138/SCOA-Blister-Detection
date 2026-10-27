@@ -1,0 +1,18 @@
+extends: paper.yaml
+name: synthetic_smoke_only
+data:
+  root: data/synthetic
+train:
+  epochs: 1
+  batch_size: 2
+  input_size: 64
+  warmup_epochs: 0
+  no_aug_epochs: 0
+  allow_scratch: true
+  pretrained: null
+  amp: false
+  log_every: 1
+optical:
+  probability: 1.0
+  hard_start_epoch: 1
+output: runs/synthetic_smoke

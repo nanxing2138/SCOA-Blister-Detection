@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "synthetic": true,
+  "comparison": "2 epochs continuous vs 1 epoch + resume",
+  "workers": 1,
+  "model": "CBAM_WIoU_SCOA",
+  "checks_exact_equal": {
+    "model": true,
+    "ema": true,
+    "ema_updates": true,
+    "optimizer": true,
+    "scaler": true,
+    "epoch": true,
+    "global_step": true,
+    "best_ap50": true,
+    "torch_rng": true
+  },
+  "successful_updates_each_run": 4,
+  "scope": "CPU epoch-boundary determinism only"
+}

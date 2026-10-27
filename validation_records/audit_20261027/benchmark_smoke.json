@@ -1,0 +1,15 @@
+{
+  "round_means_ms": [
+    50.948550007888116
+  ],
+  "end_to_end_mean_ms": 50.948550007888116,
+  "round_sample_sd_ms": null,
+  "end_to_end_p95_ms": 53.462025012413505,
+  "forward_cuda_event_ms": null,
+  "warmup_each_round": 1,
+  "iterations_each_round": 2,
+  "rounds": 1,
+  "input_size": 64,
+  "protocol_matches_paper_counts": false,
+  "excludes_image_file_decode": true
+}

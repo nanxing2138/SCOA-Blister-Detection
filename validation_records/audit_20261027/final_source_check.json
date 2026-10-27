@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "source_files_preserved": 289,
+  "missing_original_files": [],
+  "files_changed_by_audit": [
+    "scoa/augment.py",
+    "scoa/benchmark.py",
+    "scoa/config.py",
+    "scoa/data.py",
+    "scoa/evaluate.py",
+    "scoa/geometry.py",
+    "scoa/infer.py",
+    "scoa/model.py",
+    "scoa/train.py",
+    "tools/audit_cues.py",
+    "tools/check_dataset.py",
+    "tools/compare_results.py",
+    "tools/package_project.py",
+    "tools/run_smoke.py",
+    "tools/verify_pretrained.py",
+    "docs/02_paper_code_map.md"
+  ],
+  "readme_cli_commands_validated": 24,
+  "local_links_validated": 11,
+  "official_weight_sha256": "f55ded7181e1b0c13285c56e7790b8f0e8f8db590fe4edb37f0b7f345c913a30"
+}

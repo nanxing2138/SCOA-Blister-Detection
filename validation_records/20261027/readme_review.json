@@ -1,0 +1,118 @@
+{
+  "status": "passed",
+  "readme_sha256": "3707e9e8d9fb7d8a92f2e841ccafcca9c42dfbc40f42c4c9ef0673a6ba0247e2",
+  "local_links_checked": 10,
+  "python_cli_commands_checked": 24,
+  "training_evaluation_configs_checked": 12,
+  "loop_validation": "PowerShell experimentSeed substituted with42 for CLI/config checks; no formal training executed",
+  "commands": [
+    "python tools/make_synthetic.py",
+    "python -m scoa.train --config configs/smoke.yaml --device cpu --threads 2",
+    "python -m scoa.evaluate --config configs/smoke.yaml --checkpoint runs/synthetic_smoke/seed_42/best.pth --device cpu --threads 2 --output runs/synthetic_smoke/test.json",
+    "python -m scoa.infer --checkpoint runs/synthetic_smoke/seed_42/best.pth --image data/synthetic/images/test_20001.png --device cpu --threads 2 --output runs/synthetic_smoke/inference",
+    "python tools/check_dataset.py --config configs/paper.yaml --paper-counts",
+    "python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D",
+    "python -m scoa.evaluate --config configs/paper.yaml --device cuda --checkpoint runs/D/seed_42/best.pth --set name=D --output runs/D/seed_42/test_standard.json",
+    "python -m scoa.train --config configs/integrated.yaml --device cuda",
+    "python -m scoa.evaluate --config configs/integrated.yaml --device cuda --checkpoint runs/integrated/seed_42/best.pth --output runs/integrated/seed_42/test_diou.json",
+    "python -m scoa.evaluate --config configs/integrated.yaml --device cuda --checkpoint runs/integrated/seed_42/best.pth --set evaluation.nms=standard --output runs/integrated/seed_42/test_standard.json",
+    "python -m scoa.train --config configs/integrated.yaml --device cuda --set train.pretrained=weights/yolox_s.pth --set train.seed=3407",
+    "python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D --resume runs/D/seed_42/latest.pth",
+    "python -m scoa.infer --checkpoint runs/integrated/seed_3407/best.pth --image path/to/image.png --device cuda --nms diou --output runs/predict",
+    "python tools/experiment_matrix.py --suite core --pretrained weights/yolox_s.pth",
+    "python tools/experiment_matrix.py --suite components --pretrained weights/yolox_s.pth --output experiments/components",
+    "python tools/experiment_matrix.py --suite auxiliary --pretrained weights/yolox_s.pth --output experiments/auxiliary",
+    "python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D --set \"train.seed=$experimentSeed\"",
+    "python -m scoa.evaluate --config configs/paper.yaml --device cuda --checkpoint \"runs/D/seed_$experimentSeed/best.pth\" --set name=D --output \"runs/D/seed_$experimentSeed/test_standard.json\"",
+    "python tools/fit_smr.py --logs runs/D/seed_42/candidates.jsonl runs/D/seed_3407/candidates.jsonl runs/D/seed_2026/candidates.jsonl --output experiments/smr_weights.json",
+    "python -m scoa.train --config configs/paper.yaml --device cuda --set optical.policy=SMR-B --set optical.smr_weights=experiments/smr_weights.json --set train.pretrained=weights/yolox_s.pth --set name=SMR-B --set output=runs/SMR-B",
+    "python tools/compare_results.py --output experiments/paper_comparison.json",
+    "python tools/compare_results.py --results runs/D/seed_42/test_standard.json runs/D/seed_3407/test_standard.json runs/D/seed_2026/test_standard.json --output experiments/comparison_actual.json",
+    "python tools/audit_cues.py --csv real_review.csv --output experiments/cue_audit_actual.json",
+    "python -m scoa.benchmark --checkpoint runs/integrated/seed_42/best.pth --image path/to/real.png --device cuda --output experiments/latency_actual.json"
+  ],
+  "configs": [
+    {
+      "command": "python -m scoa.train --config configs/smoke.yaml --device cpu --threads 2",
+      "config": "configs/smoke.yaml",
+      "policy": "D",
+      "output": "runs/synthetic_smoke"
+    },
+    {
+      "command": "python -m scoa.evaluate --config configs/smoke.yaml --checkpoint runs/synthetic_smoke/seed_42/best.pth --device cpu --threads 2 --output runs/synthetic_smoke/test.json",
+      "config": "configs/smoke.yaml",
+      "policy": "D",
+      "output": "runs/synthetic_smoke"
+    },
+    {
+      "command": "python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D",
+      "config": "configs/paper.yaml",
+      "policy": "D",
+      "output": "runs/D"
+    },
+    {
+      "command": "python -m scoa.evaluate --config configs/paper.yaml --device cuda --checkpoint runs/D/seed_42/best.pth --set name=D --output runs/D/seed_42/test_standard.json",
+      "config": "configs/paper.yaml",
+      "policy": "D",
+      "output": "runs/scoa"
+    },
+    {
+      "command": "python -m scoa.train --config configs/integrated.yaml --device cuda",
+      "config": "configs/integrated.yaml",
+      "policy": "D",
+      "output": "runs/integrated"
+    },
+    {
+      "command": "python -m scoa.evaluate --config configs/integrated.yaml --device cuda --checkpoint runs/integrated/seed_42/best.pth --output runs/integrated/seed_42/test_diou.json",
+      "config": "configs/integrated.yaml",
+      "policy": "D",
+      "output": "runs/integrated"
+    },
+    {
+      "command": "python -m scoa.evaluate --config configs/integrated.yaml --device cuda --checkpoint runs/integrated/seed_42/best.pth --set evaluation.nms=standard --output runs/integrated/seed_42/test_standard.json",
+      "config": "configs/integrated.yaml",
+      "policy": "D",
+      "output": "runs/integrated"
+    },
+    {
+      "command": "python -m scoa.train --config configs/integrated.yaml --device cuda --set train.pretrained=weights/yolox_s.pth --set train.seed=3407",
+      "config": "configs/integrated.yaml",
+      "policy": "D",
+      "output": "runs/integrated"
+    },
+    {
+      "command": "python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D --resume runs/D/seed_42/latest.pth",
+      "config": "configs/paper.yaml",
+      "policy": "D",
+      "output": "runs/D"
+    },
+    {
+      "command": "python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D --set \"train.seed=$experimentSeed\"",
+      "config": "configs/paper.yaml",
+      "policy": "D",
+      "output": "runs/D"
+    },
+    {
+      "command": "python -m scoa.evaluate --config configs/paper.yaml --device cuda --checkpoint \"runs/D/seed_$experimentSeed/best.pth\" --set name=D --output \"runs/D/seed_$experimentSeed/test_standard.json\"",
+      "config": "configs/paper.yaml",
+      "policy": "D",
+      "output": "runs/scoa"
+    },
+    {
+      "command": "python -m scoa.train --config configs/paper.yaml --device cuda --set optical.policy=SMR-B --set optical.smr_weights=experiments/smr_weights.json --set train.pretrained=weights/yolox_s.pth --set name=SMR-B --set output=runs/SMR-B",
+      "config": "configs/paper.yaml",
+      "policy": "SMR-B",
+      "output": "runs/SMR-B"
+    }
+  ],
+  "independent_reader_review": {
+    "status": "passed_after_minor_clarifications",
+    "questions_answered": 8,
+    "changes": [
+      "Added exact paper table locations",
+      "Added D three-seed PowerShell loop with failure checks",
+      "Clarified best versus latest checkpoint"
+    ]
+  },
+  "scope": "Documentation-only review. Historical algorithm/weight tests were not rerun."
+}

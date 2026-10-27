@@ -1,0 +1,5 @@
+extends: paper.yaml
+name: basic
+optical:
+  policy: basic
+output: runs/basic

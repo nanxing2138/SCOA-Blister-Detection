@@ -1,0 +1,18 @@
+{
+  "core": {
+    "events": 4,
+    "fallbacks": {
+      "empty_feasible_set": 3,
+      "none": 1
+    },
+    "difficulty_scored_events": 1
+  },
+  "integrated": {
+    "events": 4,
+    "fallbacks": {
+      "empty_feasible_set": 3,
+      "none": 1
+    },
+    "difficulty_scored_events": 1
+  }
+}
