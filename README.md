@@ -2,11 +2,9 @@
 
 这是对上传论文 **Structure-Constrained Optical Augmentation for Pharmaceutical Blister Defect Detection** 的可移植 Python/PyTorch 重建。先读 [论文理解与缺失信息](docs/01_paper_and_plan.md)，再读 [论文—代码映射](docs/02_paper_code_map.md)。最终实际运行情况见 [验证记录](docs/03_validation.md)。
 
-现已补充[官方预训练权重与接入验证](docs/05_pretrained_weights.md)。本仓库公开源码不包含预训练权重；运行 `python tools/download_weights.py --model s` 可取得官方COCO初始化文件。
-
 **本仓库公开依据论文重建的参考实现；真实数据、固定划分及原始实验记录未随仓库分发。这里不是产生论文原有表格结果的原始研究代码。所有论文表格数值只作参考，未运行的真实结果保持 null。**
 
-以下命令在项目根目录执行。本次完成44项测试、完整合成闭环、真实COCO权重迁移，以及集成模型按epoch保存/续训的精确状态对照。详细修复与完整性边界见 [代码完整性检查报告](docs/06_completeness_audit.md)。历史验证记录保留，最新状态以这份报告为准；下文命令不依赖本机盘符。
+以下命令在项目根目录执行。本次完成44项测试、完整合成闭环，以及集成模型按epoch保存/续训的精确状态对照。详细修复与完整性边界见 [代码完整性检查报告](docs/06_completeness_audit.md)。历史验证记录保留，最新状态以这份报告为准；下文命令不依赖本机盘符。
 
 ## 阅读顺序
 
@@ -114,7 +112,7 @@ CBAM插在YOLOPAFPN相对的8个CSP主分支Bottleneck序列后、旁路拼接�
 
 ```text
 configs/                 论文、baseline、integrated、合成smoke配置
-weights/                 官方COCO权重下载位置、来源与SHA256；二进制不随仓库分发
+weights/                 模型文件目录
 scoa/
   _vendor/               官方YOLOX 0.3.0实际模型与SimOTA源码
   optics.py              椭圆高斯眩光、局部模糊/锐化、共享3候选
@@ -134,8 +132,8 @@ tests/                   数学、边界、状态与实际前反向测试
 third_party/             上游来源、commit、SHA256、Apache-2.0许可证
 source_evidence/         本地论文核对材料；不随公开仓库分发
 experiments/             不带虚构实测结果的对照文件
-docs/                    论文理解、映射、验证、实验对照与权重说明
-validation_records/      已实际执行的数值、流程与权重加载检查记录
+docs/                    论文理解、映射、验证与实验对照
+validation_records/      已实际执行的数值与流程检查记录
 ```
 
 全部命令在解压后的项目根目录运行。项目源码不使用用户电脑的绝对路径，也不会自动探测GPU型号或修改全局Python环境。
@@ -192,7 +190,7 @@ python -m scoa.infer --checkpoint runs/synthetic_smoke/seed_42/best.pth --image 
 | val | 853 | 7421 | 306 | 249 | 166 | 8142 |
 | test | 853 | 7421 | 307 | 249 | 166 | 8143 |
 
-同一物理泡罩、相邻帧和多视角应留在同一划分。论文固定图像/实体ID未公开；按相同比例另做随机划分并不等同原论文划分。项目不附带真实数据，也不通过下载COCO权重获得药品图像。
+同一物理泡罩、相邻帧和多视角应留在同一划分。论文固定图像/实体ID未公开；按相同比例另做随机划分并不等同原论文划分。项目不附带真实数据。
 
 ### COCO目录与字段
 
@@ -253,22 +251,14 @@ python tools/check_dataset.py --config configs/paper.yaml --paper-counts
 
 二次warmup、最小学习率比、Nesterov、BN/bias无decay及Mosaic具体抽样等属于从上游采用的实现选择，不能当作论文逐项披露的事实，详见后面的假设表。修改batch、轮数或输入尺寸会偏离本表；配置不会自动按新batch缩放学习率。
 
-### COCO初始化权重的获取
+### 训练与评价示例
 
-公开源码不包含官方COCO预训练 `weights/yolox_s.pth`；先运行 `python tools/download_weights.py --model s` 下载。`configs/paper.yaml`及其baseline/integrated派生配置默认使用它。合成smoke配置显式保持 `pretrained: null`，用于原来的随机初始化流程测试。
-
-准备真实数据后直接运行：
+准备好数据及对应配置后运行：
 
 ```powershell
 python -m scoa.train --config configs/paper.yaml --device cuda --set name=D --set output=runs/D
 python -m scoa.evaluate --config configs/paper.yaml --device cuda --checkpoint runs/D/seed_42/best.pth --set name=D --output runs/D/seed_42/test_standard.json
 ```
-
-权重来自[官方YOLOX release](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.pth)，官方0.3.0 README将它列为标准YOLOX-s权重。来源、官方asset ID、文件大小和本地SHA256存于 `weights/yolox_s.sha256.json`。论文未给hash，所以不能确认与作者手中的二进制完全相同。它是80类COCO初始化权重，不是已经训练好的药品四类检测权重。
-
-只拿到源码包时，可运行 `python tools/download_weights.py --model s` 另行下载；下载使用临时文件，校验官方文件大小后才写入最终文件名。已经附带权重时无需重下。运行 `python tools/verify_pretrained.py` 可检查本地校验值、核心/集成模型的实际权重加载与640前向。
-
-训练按形状匹配加载，3尺度的80类分类预测weight/bias会跳过，保留本项目4类分类层初始化；新增CBAM参数和WIoU运行均值也保留独立初始化。加载/跳过清单写入训练元数据。`scoa.infer`要求本项目训练格式的checkpoint：论文结果推理推荐使用验证最优的 `best.pth`；`latest.pth`同样可加载，但不一定是最优轮次。它不直接接收COCO初始化文件。
 
 ### baseline、核心D与集成配置
 
@@ -405,14 +395,13 @@ python -m scoa.benchmark --checkpoint runs/integrated/seed_42/best.pth --image p
 | AM-photo | 68.95±0.36 | 表2(a) | 尚未运行 |
 | AugMax-P | 69.95±0.24 | 表8(a) | 尚未运行 |
 
-目前已实际完成的检查如下，证据见 [验证记录](docs/03_validation.md)、[权重接入记录](docs/05_pretrained_weights.md) 及 `validation_records/20261027/`：
+目前已实际完成的检查如下，证据见 [验证记录](docs/03_validation.md) 及 `validation_records/20261027/`：
 
 | 检查范围 | 实际完成内容 | 能说明什么 |
 |---|---|---|
 | 数学/维度/状态 | 44项测试通过；涵盖tile、评分、EMA、WIoU、NMS、L1、半精度大框与输入校验 | 实现与所列数学/工程约束一致 |
 | epoch续训 | 集成模型连续2轮与1轮后恢复再1轮的模型/EMA/优化器等状态精确一致；workers=1 | 当前CPU组合的epoch边界续训可复现 |
 | 合成闭环 | 核心和集成的训练、SGD/EMA、checkpoint加载、评价、单图推理 | 小规模程序流程可执行 |
-| 真实COCO权重 | 两种模型各加载456个匹配tensor，跳过6个分类tensor；640前向和合成训练通过 | 官方初始化文件与当前网络可兼容迁移 |
 | 评价器 | 与pycocotools固定诊断样例的AP最大绝对误差约1.1e−16 | 该样例下符合COCO式AP语义 |
 | 真实实验 | 固定split图像/标签与作者档案缺失 | 当前不能核验论文AP、cue比例或时延 |
 
@@ -430,13 +419,13 @@ python -m scoa.benchmark --checkpoint runs/integrated/seed_42/best.pth --image p
 | 随机与采样选择 | seed/epoch/image-ID/stream稳定哈希；有限shuffle、不截断最后batch | A–D池内可对应，但不保证与作者随机轨迹相同 |
 | 其它状态/验证选择 | WIoU按非空训练forward更新均值；统一标准NMS验证AP50选checkpoint | 更新粒度/选择器细节需作者源码确认 |
 | 数值稳定修复 | AMP训练解码、平方IoU与匹配IoU改为FP32算术，数学公式不变 | 降低FP16面积/指数运算溢出的风险；GPU完整训练仍未验证 |
-| 未公开材料 | 真实数据及固定split ID、作者pretraining hash、SMR权重、自定义评价器和逐seed档案 | 不能证明同划分、同初始化或全部结果复现 |
+| 未公开材料 | 真实数据及固定split ID、SMR采样系数、自定义评价器和逐seed档案 | 不能证明同划分或全部结果复现 |
 
 - 当前可交付的是核心/配套/上述辅助策略的运行实现；真实8532图实验、840张外部条件、人工审核、曲线与时延尚需真实材料。
-- 没有实现YOLOv8s或RT-DETR的独立训练仓库适配器；它们属于横向系统比较，不能以此项目中的YOLOX结果代替。论文未公开其全部配置/权重身份，因此这部分仍未复现。
+- 没有实现YOLOv8s或RT-DETR的独立训练仓库适配器；它们属于横向系统比较，不能以此项目中的YOLOX结果代替。论文未公开其全部配置，因此这部分仍未复现。
 - 论文没有披露所有随机抽样与优化细节。独立随机流、SGD默认、Mosaic与反射模式等见信息缺口表；相同数字种子不能保证与作者逐步一致。
 - 参考torch1.12.1/CUDA11.6完整300轮尚未验证。隔离CPU验证只覆盖验证记录中明确列出的组合。确定性算法无法保证跨平台/版本逐bit相同。
-- 项目不含真实训练结果或可用的预训练缺陷检测权重；合成smoke的checkpoint只供流程检查。
+- 合成smoke的checkpoint只供流程检查。
 
 此外，本项目实际参数数为8,938,843（核心）和8,964,445（集成），而论文记为8.910M/8.936M。当前无法确定是统计口径还是未公开结构细节导致；保留官方基底与论文指定插入点，不为匹配舍入数字改造网络。
 
@@ -447,9 +436,7 @@ python -m scoa.benchmark --checkpoint runs/integrated/seed_42/best.pth --image p
 | 现象 | 处理方式 |
 |---|---|
 | 找不到 `data/blister/annotations/train.json` | 真实数据未附带。准备COCO目录，或用 `configs/smoke.yaml` 跑合成流程 |
-| 找不到 `weights/yolox_s.pth` | 运行 `python tools/download_weights.py --model s` |
-| 出现6个分类tensor未加载 | COCO80类转药品4类的预期行为；检查其它匹配tensor已加载 |
-| 给 `scoa.infer` 传COCO权重后缺少config/ema | 先训练后推理；论文结果使用best.pth，latest.pth虽可加载但未必最优 |
+| 检查点缺少config/ema字段 | 使用包含程序所需字段的检查点，并核对加载接口 |
 | 已有latest.pth，训练拒绝继续 | 用相同设置 `--resume`，或通过 `--set output=runs/new_run` 新建输出 |
 | resume配置/标注hash变化 | 复用原配置中的name、模型、seed和训练设置；不要换split后沿用旧优化器状态 |
 | evaluation model/input_size不匹配 | 选择与checkpoint一致的config；完整集成不能用纯baseline配置评价 |
@@ -459,6 +446,6 @@ python -m scoa.benchmark --checkpoint runs/integrated/seed_42/best.pth --image p
 
 ## 来源与许可
 
-检测基底固定到[YOLOX 0.3.0](https://github.com/Megvii-BaseDetection/YOLOX/tree/0.3.0)，commit记录在`third_party/upstream.json`，官方模型文件SHA256记录在`third_party/model_file_sha256.json`。保留[Apache-2.0许可证](third_party/YOLOX/LICENSE)。本地最小vendor副本只有head utils导入改动；未重写或替换SimOTA为假算法。
+检测基底固定到[YOLOX 0.3.0](https://github.com/Megvii-BaseDetection/YOLOX/tree/0.3.0)，commit记录在`third_party/upstream.json`，上游模型源码文件SHA256记录在`third_party/model_file_sha256.json`。保留[Apache-2.0许可证](third_party/YOLOX/LICENSE)。本地最小vendor副本只有head utils导入改动；未重写或替换SimOTA为假算法。
 
 WIoU算术对照[作者源码](https://github.com/Instinct323/Wise-IoU/blob/v2/iou.py)，参数使用上传论文的1.9/3.0/1e−4，不套用上游当前默认。CBAM结构对照[作者实现](https://github.com/Jongchan/attention-module/blob/master/MODELS/cbam.py)，插入位置以本论文§3.5为准。

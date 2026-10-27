@@ -1,3 +1,5 @@
+> Distribution edit on 2026-10-27: model-distribution notes were removed from this document. Upstream code, copyright notices and licensing are unchanged.
+
 # YOLOX-Python-MegEngine
 
 Python version of YOLOX object detection base on [MegEngine](https://github.com/MegEngine/MegEngine).
@@ -10,7 +12,7 @@ Python version of YOLOX object detection base on [MegEngine](https://github.com/
 python3 -m pip install megengine -f https://megengine.org.cn/whl/mge.html
 ```
 
-### Step2: convert checkpoint weights from torch's path file
+### Step2: Convert the model format
 
 ```
 python3 convert_weights.py -w yolox_s.pth -o yolox_s_mge.pkl

@@ -1,18 +1,20 @@
+> Distribution edit on 2026-10-27: model-distribution notes were removed from this document. Upstream code, copyright notices and licensing are unchanged.
+
 ## YOLOX-ONNXRuntime in Python
 
 This doc introduces how to convert your pytorch model into onnx, and how to run an onnxruntime demo to verify your convertion.
 
-### Download ONNX models.
+### Model configurations
 
-| Model | Parameters | GFLOPs | Test Size | mAP | Weights |
-|:------| :----: | :----: | :---: | :---: | :---: |
-|  YOLOX-Nano |  0.91M  | 1.08 | 416x416 | 25.8 |[github](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_nano.onnx) |
-|  YOLOX-Tiny | 5.06M     | 6.45 | 416x416 |32.8 | [github](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_tiny.onnx) |
-|  YOLOX-S | 9.0M | 26.8 | 640x640 |40.5 | [github](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx) |
-|  YOLOX-M | 25.3M | 73.8 | 640x640 |47.2 | [github](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_m.onnx) |
-|  YOLOX-L | 54.2M | 155.6 | 640x640 |50.1 | [github](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_l.onnx) |
-|  YOLOX-Darknet53| 63.72M | 185.3 | 640x640 |48.0 | [github](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_darknet.onnx) |
-|  YOLOX-X | 99.1M | 281.9 | 640x640 |51.5 | [github](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_x.onnx) |
+| Model | Parameters | GFLOPs | Test Size | mAP |
+|:------| :----: | :----: | :---: | :---: |
+|  YOLOX-Nano |  0.91M  | 1.08 | 416x416 | 25.8 |
+|  YOLOX-Tiny | 5.06M     | 6.45 | 416x416 |32.8 |
+|  YOLOX-S | 9.0M | 26.8 | 640x640 |40.5 |
+|  YOLOX-M | 25.3M | 73.8 | 640x640 |47.2 |
+|  YOLOX-L | 54.2M | 155.6 | 640x640 |50.1 |
+|  YOLOX-Darknet53| 63.72M | 185.3 | 640x640 |48.0 |
+|  YOLOX-X | 99.1M | 281.9 | 640x640 |51.5 |
 
 
 ### Convert Your Model to ONNX
